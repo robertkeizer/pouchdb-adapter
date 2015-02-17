@@ -46,7 +46,7 @@ export default DS.Adapter.extend( {
 				activeDatabases.forEach( function( activeDatabase ){
 					_promises.push( new Ember.RSVP.Promise( function( resolve, reject ){
 
-						activeDatabase.get( self.databaseId( _id ), function( err, response ){
+						activeDatabase.get( self.databaseId( id, type ), function( err, response ){
 							if( err ){ return reject( err ); }
 
 							// We want to know what the database name is; so we shunt
@@ -73,7 +73,6 @@ export default DS.Adapter.extend( {
 						// a single result because we're inside a RSVP.all..
 						// if the winning database has rejected the find we
 						// wouldn't be here.
-						console.log( "RESOLVING HERE" );
 						return resolve( results.filter( function( result ){
 							if( result.___key == self.winningDatabase ){
 								return true;
@@ -83,11 +82,13 @@ export default DS.Adapter.extend( {
 					}
 
 					// Make sure all the results are the same; If they're not, fail.
-					
-					
+					// TODO make this a deep comparison.
+					if( new Ember.Array( results ).uniq( ).length == results.length ){
+						return resolve( results[0] );
+					}
 
-					console.log( "I have results of " );
-					console.log( results );
+					return reject( "Disparate results coming back from multiple databases." );
+
 				}, reject );
 			}, reject );
 		} );
