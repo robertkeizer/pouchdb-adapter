@@ -1,10 +1,13 @@
 export default DS.Adapter.extend( {
 
-	// Just some placeholder values for testing
-	// and developing.
-	databaseName: "ember-application-db",
-	databaseOptions: { adapter: "websql", size: 50 },
+	databaseParticulars: new Ember.Object( {
+		"default": {
+			databaseName: "ember-application-db",
+			databaseOptions: { adapter: "websql", size: 50 }
+		}
+	} ),
 
+	replicationObjects: new Ember.Object( { } );
 
 	createRecord: function( store, type, record ){
 		return new Ember.RSVP.Promise( function( resolve, reject ){
@@ -30,19 +33,31 @@ export default DS.Adapter.extend( {
 		} );
 	},
 
-	findMany: function( resolve, reject ){
+	findMany: function( ){
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
 	},
 
-	findAll: function( resolve, reject ){
+	findAll: function( ){
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
 	},
 
-	findQuery: function( resolve, reject ){
+	findQuery: function( ){
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	startReplication: function( name, particulars ){
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	stopReplication: function( name ){
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
@@ -50,13 +65,27 @@ export default DS.Adapter.extend( {
 
 	// This function returns a promsie that either
 	// is resolved with the pouchdb database, or fails getting it.
-	_getDatabase: function( ){
-
+	_getDatabase: function( name ){
 		var self = this;
 
-		// If we have the database already, and it is a promise..
-		if( this._database && self._database.then ){
-			return self._database;
+		// If a name wasn't specified we should 
+		// make sure its the default.
+		if( !name ){ name = "default"; }
+
+		// Check to make sure the database configuration exists
+		// in databaseParticulars; If it doesn't, exit out.
+		if( !this.databaseParticulars.get( name ) ){
+			
+		}
+
+		// We only really care about this particular database and its particulars.
+		// so lets not trouble ourselves by calling this.databaseParticulars.get( name )
+		// over and over again.
+		var _thisDatabaseParticulars = this.databaseParticulars.get( name );
+
+		// If we have the database already, and it is a promise we want to return.
+		if( _thisDatabaseParticulars.get( "_database" ) && _thisDatabaseParticulars.get( "_database" ).then ){
+			return _thisDatabaseParticulars.get( "_database" );
 		}
 
 		// If we have the database but it isn't a promise, we should wrap
