@@ -40,22 +40,71 @@ export default DS.Adapter.extend( {
 	find: function( store, type, id ){
 		var self = this;
 		return new Ember.RSVP.Promise( function( resolve, reject ){
+
+			self.runOnAllDatabases( function( database ){
+
+				return new Ember.RSVP.Promise( function( resolve, reject ){
+					database.get( self.databaseId( id, type ), function( err, response ){
+						if( err ){ return reject( err ); }
+
+						// We want to know what the database name is; so we shunt
+						// it into the response to be ripped out later.
+						response.___key = activeDatabase.___key;
+
+						return resolve( response );
+					} );
+				} );
+
+			} ).then( resolve, reject );
+		} );
+	},
+
+	findMany: function( ){
+		console.log( "FINDMANY" );
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	findAll: function( ){
+		var self = this;
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	findQuery: function( ){
+		console.log( "FINDQUERY" );
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	startReplication: function( name, particulars ){
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	stopReplication: function( name ){
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			
+		} );
+	},
+
+	// This function takes care of enumerating all the active databases
+	// and running a given function against all of them; The results
+	// are also parsed such that the functions using this don't need
+	// to care about logic surrounding multiple databases.
+
+	runOnAllDatabases: function( functionToRun ){
+		var self = this;
+		return new Ember.RSVP.Promise( function( resolve, reject ){
 			self.getActiveDatabases( ).then( function( activeDatabases ){
 				var _promises = [ ];
 
 				activeDatabases.forEach( function( activeDatabase ){
-					_promises.push( new Ember.RSVP.Promise( function( resolve, reject ){
-
-						activeDatabase.get( self.databaseId( id, type ), function( err, response ){
-							if( err ){ return reject( err ); }
-
-							// We want to know what the database name is; so we shunt
-							// it into the response to be ripped out later.
-							response.___key = activeDatabase.___key;
-
-							return resolve( response );
-						} );
-					} ) );
+					_promises.push( functionToRun( activeDatabase ) );
 				} );
 
 				Ember.RSVP.all( _promises ).then( function( results ){
@@ -91,39 +140,7 @@ export default DS.Adapter.extend( {
 
 				}, reject );
 			}, reject );
-		} );
-	},
 
-	findMany: function( ){
-		console.log( "FINDMANY" );
-		return new Ember.RSVP.Promise( function( resolve, reject ){
-			
-		} );
-	},
-
-	findAll: function( ){
-		console.log( "FINDALL" );
-		return new Ember.RSVP.Promise( function( resolve, reject ){
-			
-		} );
-	},
-
-	findQuery: function( ){
-		console.log( "FINDQUERY" );
-		return new Ember.RSVP.Promise( function( resolve, reject ){
-			
-		} );
-	},
-
-	startReplication: function( name, particulars ){
-		return new Ember.RSVP.Promise( function( resolve, reject ){
-			
-		} );
-	},
-
-	stopReplication: function( name ){
-		return new Ember.RSVP.Promise( function( resolve, reject ){
-			
 		} );
 	},
 
