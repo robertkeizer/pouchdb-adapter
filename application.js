@@ -49,7 +49,7 @@ export default DS.Adapter.extend( {
 
 						// We want to know what the database name is; so we shunt
 						// it into the response to be ripped out later.
-						response.___key = activeDatabase.___key;
+						response.___key = database.___key;
 
 						return resolve( response );
 					} );
@@ -73,10 +73,155 @@ export default DS.Adapter.extend( {
 		} );
 	},
 
-	findQuery: function( ){
-		console.log( "FINDQUERY" );
+	findQuery: function( store, type, query, options ){
+
+		var self = this;
+
 		return new Ember.RSVP.Promise( function( resolve, reject ){
+
+			// Based on the type we want to figure out what attributes
+			// are a hasMany relationship; We don't want to emit a 
+			// basic type or a complex array in the key.. we want
+			// multiple emit lines.
+
+			// To facilitate this we create an array of keys that
+			// we should treat as arrays instead of single simple
+			// values.
+			var hasManyKeys = [ ];
+
+			// I can't find a better way to enumerate the relationships of a
+			// given type; So we create an instance here.. even though we do
+			// nothing with it. ( It isn't saved ).
+			store.createRecord( type, { } ).eachRelationship( function( relationship, options ){
+				if( options.kind == "hasMany" ){
+					hasManyKeys.push( relationship );
+				}
+			} );
+
+			// We want to populate singleKeys with an array
+			// of keys that are belongsTo or direct reference comparisons.
+			// Also since we're iterating over query anyways, we build up
+			// what the view name should be.
+			var singleKeys		= [ ];
+			var viewNameKeys	= [ ];
+			for( var key in query ){
+				if( hasManyKeys.indexOf( key ) < 0 ){
+					singleKeys.push( key );
+				}
+				viewNameKeys.push( key );
+			}
+
+			var viewName = type.typeKey + "-" + viewNameKeys.join( "-" );
+
+			// Check if the design doc and the view exist.
+			self.viewExists( viewName ).then( function( ){
+				
+				// Lets figure out what our queryKeys are going to be;
+				// These are the actual values passed in in the query
+				// object to the search.. 
+				var queryKeys = [ ];
+				for( var key in query ){
+					if( !singleKeys.indexOf( key ) ){
+						// Querying by hasMany; we should
+						// make sure the actual query key is an
+						// array or automatically wrap it in an 
+						// array ourselves.
+						
+						if( Array.isArray( query[key] ) ){
+							queryKeys.push( query[key] );
+						}else{
+							queryKeys.push( [ query[key] ] );
+						}
+					}
+
+					// Single; just use the value we have.
+					queryKeys.push( query[key] );
+				}
+			} );
+
+		} );
+	},
+
+	// This function makes sure that the given view doesn't already exist.
+	// It makes use of the fact that design document name is the first 
+	// split of '-'
+	viewExists: function( viewName ){
+		var self = this;
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+
+			// The design doc name is the first part in the view name.
+			var _split		= viewName.split( "-" );
+			var _designDocName	= _split[0];
+
+			// Check to make sure the design document exists; If
+			// it doesn't we should create it.
+
+			self.runOnAllDatabases( function( database ){
+				database.get( "_design/" + _designDocName, function( err, res ){
+					if( err && err.status != 404 ){ 
+						return reject( err );
+					}else if( err ){
+						// 404 error.. lets create the design document.
+						// First we need to get the map function geneated for
+						// the view.
+						self.generateMapFunctionForView( viewName ).then( function( mapFunctionString ){
+							
+						}, reject );
+					}
+					
+					// Exists already; Resolve.
+					return resolve( );
+				} );
+			} );
+		} );
+	},
+
+	generateMapFunctionForView: function( viewName ){
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			/*
+
+			// Because we want to iterate over an array inside our
+			// function that we're defining, we should create an array
+			// that contains doc.zzz for zzz in query.
+			var docKeys = singleKeys.map( function( key ){ return "doc." + key; } );
 			
+			var mapFn = 'function(doc){ ' +
+			'  if( doc._id.indexOf( "_" ) > 0 ){' +
+			'    try { ' +
+			'      var _split = doc._id.split( "_" );' +
+			'      if( _split[0] == "' + type.typeKey + '" ){';
+
+			// If we have a hasManyKey we want to iterate over all the 
+			// hasManyKeys and have multiple emits in the function.
+			if( hasManyKeys.length > 0 ){
+
+				// Go through them each and make sure the map function
+				// has a block that checks to see if the key exists
+				// in the document, and is an array. If it is,
+				// we want to have multiple emit lines..
+				hasManyKeys.forEach( function( hasManyKey ){
+
+					mapFn += 'if( doc.' + hasManyKey + ' && Array.isArray( doc.' + hasManyKey + ' ) ){';
+
+					mapFn += '  doc.' + hasManyKey + '.forEach( function( particularVal ){';
+	
+					
+
+					mapFn += '  } )';
+
+					mapFn += '}';
+				} );
+
+			}else{
+				mapFn += 'emit( [ ' + docKeys.join(',') + ' ], null );';
+			}
+			
+			mapFn += '      }' +
+			'    } catch( e ){ }' +
+			'  }'
+			'}';
+			*/
+
 		} );
 	},
 
