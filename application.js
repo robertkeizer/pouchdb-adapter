@@ -7,9 +7,10 @@ export default DS.Adapter.extend( {
 		} )
 	} ),
 
-	replicationObjects: new Ember.Object( { } ),
+	replicationObjects: Ember.Object.create( ),
 
 	createRecord: function( store, type, record ){
+		var self = this;
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
@@ -28,24 +29,30 @@ export default DS.Adapter.extend( {
 	},
 	
 	find: function( store, type, id ){
+		var self = this;
 		return new Ember.RSVP.Promise( function( resolve, reject ){
-			
+			self.getActiveDatabases( ).then( function( activeDatabases ){
+				
+			}, reject );
 		} );
 	},
 
 	findMany: function( ){
+		console.log( "FINDMANY" );
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
 	},
 
 	findAll: function( ){
+		console.log( "FINDALL" );
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
 	},
 
 	findQuery: function( ){
+		console.log( "FINDQUERY" );
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
 		} );
@@ -60,6 +67,34 @@ export default DS.Adapter.extend( {
 	stopReplication: function( name ){
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			
+		} );
+	},
+
+	// This function goes through databaseParticulars and 
+	// enumerates all the databases that are actuall valid.. ie 
+	// _database is defined and it isn't a promise.
+
+	// It rejects if no valid databases were found.
+	getActiveDatabases: function( ){
+		var self = this;
+		return new Ember.RSVP.Promise( function( resolve, reject ){
+			var _promises = [ ];
+
+			Object.keys( self.databaseParticulars ).forEach( function( databaseParticularKey ){
+				_promises.push( new Ember.RSVP.Promise( function( resolve, reject ){
+					return resolve( self.databaseParticulars.get( databaseParticularKey ).get( "_database" ) );
+				} ) );
+			} );
+
+			Ember.RSVP.filter( _promises, function( databaseInstance ){
+				if( !databaseInstance || databaseInstance.then ){
+					return false;
+				}
+				return true;
+			} ).then( function( results ){
+				console.log( "I have results of " );
+				console.log( results );
+			} );
 		} );
 	},
 
