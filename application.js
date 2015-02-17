@@ -7,6 +7,15 @@ export default DS.Adapter.extend( {
 		} )
 	} ),
 
+	// This variable makes sure that
+	// all the databases respond back with the
+	// same results. The promise will fail if
+	// this is set to true and different results
+	// are returned. Otherwise the datatabase
+	// specified by winningDatabase wins.
+	enforceSync: false,
+	winningDatabase: "default",
+
 	replicationObjects: Ember.Object.create( ),
 
 	createRecord: function( store, type, record ){
@@ -32,7 +41,54 @@ export default DS.Adapter.extend( {
 		var self = this;
 		return new Ember.RSVP.Promise( function( resolve, reject ){
 			self.getActiveDatabases( ).then( function( activeDatabases ){
-				
+				var _promises = [ ];
+
+				activeDatabases.forEach( function( activeDatabase ){
+					_promises.push( new Ember.RSVP.Promise( function( resolve, reject ){
+
+						activeDatabase.get( self.databaseId( _id ), function( err, response ){
+							if( err ){ return reject( err ); }
+
+							// We want to know what the database name is; so we shunt
+							// it into the response to be ripped out later.
+							response.___key = activeDatabase.___key;
+
+							return resolve( response );
+						} );
+					} ) );
+				} );
+
+				Ember.RSVP.all( _promises ).then( function( results ){
+
+					// Depending on our configuration we want to either
+					// enforce that there is only a single unique result
+					// or pick a given response back from one of the databases
+					// in particular. See enforceSync.
+
+					// If we don't care about multiple disparate results coming
+					// back, go with the default.
+					if( !self.enforceSync ){
+						
+						// We know that this filter function will return 
+						// a single result because we're inside a RSVP.all..
+						// if the winning database has rejected the find we
+						// wouldn't be here.
+						console.log( "RESOLVING HERE" );
+						return resolve( results.filter( function( result ){
+							if( result.___key == self.winningDatabase ){
+								return true;
+							}
+							return false;
+						} )[0] );
+					}
+
+					// Make sure all the results are the same; If they're not, fail.
+					
+					
+
+					console.log( "I have results of " );
+					console.log( results );
+				}, reject );
 			}, reject );
 		} );
 	},
@@ -70,6 +126,12 @@ export default DS.Adapter.extend( {
 		} );
 	},
 
+	// This function takes an ember id and a type, and transforms
+	// it into a pouchdb id.. 
+	databaseId: function( id, type ){
+		return type.typeKey + "_" + id;
+	},
+
 	// This function goes through databaseParticulars and 
 	// enumerates all the databases that are actuall valid.. ie 
 	// _database is defined and it isn't a promise.
@@ -82,7 +144,20 @@ export default DS.Adapter.extend( {
 
 			Object.keys( self.databaseParticulars ).forEach( function( databaseParticularKey ){
 				_promises.push( new Ember.RSVP.Promise( function( resolve, reject ){
-					return resolve( self.databaseParticulars.get( databaseParticularKey ).get( "_database" ) );
+
+					// Get the database itself.
+					var _database = self.databaseParticulars.get( databaseParticularKey ).get( "_database" );
+
+					// Sanity check against if the database is actually null or undefined or the like.
+					if( _database ){
+
+						// We inject the databaseParticularKey into the PouchDB instance so that
+						// iterating over databaseParticulars isn't required later, to find what
+						// pouchdb database goes with what connection.
+						_database.___key = databaseParticularKey;
+					}
+
+					return resolve( _database );
 				} ) );
 			} );
 
@@ -92,8 +167,10 @@ export default DS.Adapter.extend( {
 				}
 				return true;
 			} ).then( function( results ){
-				console.log( "I have results of " );
-				console.log( results );
+				if( results.length > 0 ){
+					return resolve( results );
+				}
+				return reject( "No active databases found." );
 			} );
 		} );
 	},
