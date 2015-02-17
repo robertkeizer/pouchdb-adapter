@@ -1,13 +1,13 @@
 export default DS.Adapter.extend( {
 
-	databaseParticulars: new Ember.Object( {
-		"default": {
+	databaseParticulars: Ember.Object.create( { 
+		"default": Ember.Object.create( {
 			databaseName: "ember-application-db",
 			databaseOptions: { adapter: "websql", size: 50 }
-		}
+		} )
 	} ),
 
-	replicationObjects: new Ember.Object( { } );
+	replicationObjects: new Ember.Object( { } ),
 
 	createRecord: function( store, type, record ){
 		return new Ember.RSVP.Promise( function( resolve, reject ){
@@ -66,6 +66,7 @@ export default DS.Adapter.extend( {
 	// This function returns a promsie that either
 	// is resolved with the pouchdb database, or fails getting it.
 	_getDatabase: function( name ){
+
 		var self = this;
 
 		// If a name wasn't specified we should 
@@ -75,7 +76,9 @@ export default DS.Adapter.extend( {
 		// Check to make sure the database configuration exists
 		// in databaseParticulars; If it doesn't, exit out.
 		if( !this.databaseParticulars.get( name ) ){
-			
+			return new Ember.RSVP.Promise( function( resolve, reject ){
+				return reject( "Not defined." );
+			} );
 		}
 
 		// We only really care about this particular database and its particulars.
@@ -91,24 +94,32 @@ export default DS.Adapter.extend( {
 		// If we have the database but it isn't a promise, we should wrap
 		// it in one so that our code doesn't have to handle multiple return
 		// values from this function..
-		if( this._database ){
+		if( _thisDatabaseParticulars.get( "_database" ) ){
 			return new Ember.RSVP.Promise( function( resolve, reject ){
-				return resolve( self._database );
+				return resolve( _thisDatabaseParticulars.get( "_database" ) );
 			} );
 		}
 
 		// Lets create a new promise that gets the actual database.. we want
-		// to set this to this._database so that any subsequent hits to _getDatabase
-		// don't hit this again.
-		this._database = new Ember.RSVP.Promise( function( resolve, reject ){
-			new PouchDB( self.databaseName, self.databaseOptions, function( err, database ){
-				if( err ){ return reject( err ); }
+		// to set this so that any subsequent hits to _getDatabase don't hit
+		// this logic again.
+		_thisDatabaseParticulars.set( "_database", new Ember.RSVP.Promise( function( resolve, reject ){
+			new PouchDB( _thisDatabaseParticulars.get( "databaseName" ), _thisDatabaseParticulars.get( "databaseOptions" ), function( err, database ){
 
-				self._database = database;
-				return resolve( self._database );
+				// We should reject if we get an error back.
+				// Also we should make sure that _database is
+				// cleared of this now rejected promise.
+				if( err ){
+					reject( err );
+					return _thisDatabaseParticulars.set( "_database", null );
+				}
+
+				// Lets set the database ..
+				resolve( database );
+				_thisDatabaseParticulars.set( "_database", database );
 			} );
-		} );
+		} ) );
 
-		return this._database;
+		return _thisDatabaseParticulars.get( "_database" );
 	}
 } );
